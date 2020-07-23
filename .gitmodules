@@ -1,0 +1,4 @@
+[submodule "mothur"]
+	path = mothur
+	url = git@github.com:lguangyu/Amplicon_Sequencing_Analysis.git
+	branch = anal_proj_struct
