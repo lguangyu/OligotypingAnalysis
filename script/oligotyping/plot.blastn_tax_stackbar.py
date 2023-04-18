@@ -24,6 +24,10 @@ def get_args():
 	ap.add_argument("-k", "--key-field", type=int, default=2,
 		metavar="int",
 		help="the taxnomy value field number (0-based) in input files [0]")
+	ap.add_argument("-n", "--num-legend-taxons", type=int, default=20,
+		metavar="int",
+		help="number of taxons to show in legend, increase this number too much"
+			" will cause inevitable color confliction [20]")
 	ap.add_argument("-p", "--plot", type=str, default="-",
 		metavar="png",
 		help="output plot image, or write to stdout by default '-'")
@@ -105,7 +109,50 @@ def get_oligo_tax_bootstrap_matrix(oligo_tax: dict):
 	return u_oligo, u_tax, bs_mat
 
 
-def plot_oligo_tax_stackbar(png, oligo_tax: dict):
+class LegendColors(list):
+	@staticmethod
+	def get_default_color_pool() -> list:
+		colors = matplotlib.pyplot.get_cmap("Set3").colors \
+			+ matplotlib.pyplot.get_cmap("Pastel2").colors \
+			+ matplotlib.pyplot.get_cmap("Dark2").colors
+		colors = [matplotlib.colors.to_hex(i) for i in colors]
+		colors = LegendColors._drop_replicates(colors)
+		return colors
+
+	@staticmethod
+	def _drop_replicates(vec: list):
+		seen = set()
+		ret = list()
+		for i in vec:
+			if i not in seen:
+				ret.append(i)
+				seen.add(i)
+		return ret
+
+	def __init__(self, *ka, **kw):
+		super().__init__(*ka, **kw)
+		if not self:
+			self.extend(self.get_default_color_pool())
+		self.check_elements()
+		return
+
+	def check_elements(self) -> None:
+		for i in super().__iter__():
+			if not matplotlib.colors.is_color_like(i):
+				raise ValueError("'%s' cannot be interpreted as color")
+		return
+
+	def __getitem__(self, index):
+		"""
+		allow cyclic index beyond the list length
+		"""
+		return super().__getitem__(index % len(self))
+
+	def __iter__(self):
+		return itertools.cycle(super().__iter__())
+
+
+def plot_oligo_tax_stackbar(png, oligo_tax: dict, num_legend_taxons: int = 20):
 	u_oligo, u_tax, bs_mat = get_oligo_tax_bootstrap_matrix(oligo_tax)
 
 	n_oligo, n_tax = len(u_oligo), len(u_tax)
@@ -116,13 +163,14 @@ def plot_oligo_tax_stackbar(png, oligo_tax: dict):
 	layout = setup_layout(figure, n_oligo)
 
 	# plot
-	colors = matplotlib.pyplot.get_cmap("Set3").colors \
-		+ matplotlib.pyplot.get_cmap("Pastel2").colors
+	colors = LegendColors()
 	axes = layout["axes"]
 	bottom = numpy.zeros(n_oligo, dtype = float)
 	handles = list()
 	x = numpy.arange(n_oligo) + 0.5
 	for h, t, c in zip(bs_mat.T, u_tax, colors):
+		if len(handles) >= num_legend_taxons:
+			break
 		bar = axes.bar(x, h, width = 0.8, bottom = bottom,
 			align = "center", edgecolor = "#404040", linewidth = 0.5,
 			facecolor = c, label = t)
@@ -162,7 +210,8 @@ def main():
 	oligo_tax = read_all_oligo_tax_count(args.dirname, args.extension,
 		key_field=args.key_field, delimiter=args.delimiter)
 	# plot
-	plot_oligo_tax_stackbar(args.plot, oligo_tax)
+	plot_oligo_tax_stackbar(args.plot, oligo_tax,
+		num_legend_taxons=args.num_legend_taxons)
 	return
 
 
