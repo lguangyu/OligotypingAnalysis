@@ -15,7 +15,7 @@ def get_args():
 	ap = argparse.ArgumentParser()
 	ap.add_argument("oligo_output", type=str,
 		help="oligotyping output directory")
-	ap.add_argument("--max-n-jobs", "-n", type=int, default=1,
+	ap.add_argument("--max-n-jobs", "-j", type=int, default=1,
 		metavar="int",
 		help="number of maximum SLURM jobs to submit [1]")
 	ap.add_argument("--output-dir", "-O", type=str, default="blastn",
@@ -24,6 +24,8 @@ def get_args():
 	ap.add_argument("--log-dir", type=str, default=".log",
 		metavar="dir",
 		help="log directory [.log]")
+	ap.add_argument("--dry-run", "-N", action="store_true",
+		help="do not submit any jobs or make any changes")
 
 	# parse and refine args
 	args = ap.parse_args()
@@ -88,10 +90,11 @@ class OligoRepBlastJobSubmit(object):
 		self.fasta_stats = OligoRepUniqStats.scan_oligo_output(oligo_output)
 		return
 
-	def submit_jobs(self) -> int:
+	def submit_jobs(self, dry_run=False) -> int:
 		# create output dirs
-		os.makedirs(self.output_dir, exist_ok=True)
-		os.makedirs(self.log_dir, exist_ok=True)
+		if not dry_run:
+			os.makedirs(self.output_dir, exist_ok=True)
+			os.makedirs(self.log_dir, exist_ok=True)
 
 		fasta_lists = self.split_job_fasta_lists()
 		# submit individual worker jobs
@@ -99,15 +102,17 @@ class OligoRepBlastJobSubmit(object):
 		for i, flist in enumerate(fasta_lists):
 			# save flist for workers to read
 			flist_file = os.path.join(self.output_dir, "split_%03u.tmp" % i)
-			with open(flist_file, "w") as fp:
-				for f in flist:
-					print(f, file=fp)
+			if not dry_run:
+				with open(flist_file, "w") as fp:
+					for f in flist:
+						print(f, file=fp)
 			worker_input_files.append(flist_file)
 
 		# submit worker jobs 
-		return self._submit_slurm_workers(worker_input_files)
+		return self._submit_slurm_workers(worker_input_files, dry_run=dry_run)
 
-	def _submit_slurm_workers(self, worker_input_files: list) -> int:
+	def _submit_slurm_workers(self, worker_input_files: list, *, dry_run=False
+			) -> int:
 		jobids = list()
 
 		for f in worker_input_files:
@@ -115,18 +120,21 @@ class OligoRepBlastJobSubmit(object):
 			log_file = os.path.join(self.log_dir, job_name + ".log")
 			cmd = ["sbatch", "-J", job_name, "-o", log_file,
 				"script/worker.oligo_fasta_blastn.sh", f]
-			sp = subprocess.run(cmd, stdout=subprocess.PIPE)
-			print(sp.stdout.decode("utf-8"), file=sys.stdout, end="")
-			if sp.returncode:
-				print(str(cmd) + " exited with non-zero return code",
-					file=sys.stderr)
-				self._clean_up_submitted_slurm_jobs(jobids)
-				print("aborting", file=sys.stderr)
-				return -1
+			if not dry_run:
+				sp = subprocess.run(cmd, stdout=subprocess.PIPE)
+				print(sp.stdout.decode("utf-8"), file=sys.stdout, end="")
+				if sp.returncode:
+					print(str(cmd) + " exited with non-zero return code",
+						file=sys.stderr)
+					self._clean_up_submitted_slurm_jobs(jobids)
+					print("aborting", file=sys.stderr)
+					return -1
+				else:
+					m = re.search(r"(\d+)$", sp.stdout.decode("utf-8"))
+					if m:
+						jobids.append(m.group(1))
 			else:
-				m = re.search(r"(\d+)$", sp.stdout.decode("utf-8"))
-				if m:
-					jobids.append(m.group(1))
+				print("submitting: " + str(cmd), file=sys.stderr)
 
 		return 0
 
@@ -164,9 +172,9 @@ class OligoRepBlastJobSubmit(object):
 		sub_idxs = list()
 
 		for i, v in enumerate(arr):
-			if v > s:
-				# not feasible since a single element is larger than s
-				return None
+			#if v > s:
+			#	# not feasible since a single element is larger than s
+			#	return None
 
 			for j in range(len(sub_sums)):
 				if sub_sums[j] + v <= s:
@@ -193,7 +201,7 @@ class OligoRepBlastJobSubmit(object):
 			return [list(range(len(arr)))]
 
 		# lower bound of searching range
-		ran_l = max(arr)
+		ran_l = min(arr)
 		# higher bound of searching range
 		ran_h = sum(arr)
 
@@ -219,7 +227,7 @@ def main():
 		log_dir=args.log_dir,
 		max_n_jobs=args.max_n_jobs,
 	)
-	o.submit_jobs()
+	o.submit_jobs(dry_run=args.dry_run)
 	return
 
 
