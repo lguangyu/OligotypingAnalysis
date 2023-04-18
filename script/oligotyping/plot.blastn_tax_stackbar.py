@@ -15,9 +15,13 @@ def get_args():
 	ap = argparse.ArgumentParser()
 	ap.add_argument("dirname", type=str,
 		help="directory name that contains all blastdbcmd taxonomy tables")
-	ap.add_argument("-x", "--extension", type=str, default="blastdbcmd",
-		metavar="str",
-		help="the extension of files to scan [blastdbcmd]")
+	ag = ap.add_mutually_exclusive_group()
+	ag.add_argument("-x", "--scan-ext", type=str, metavar="str",
+		help="scan for all files with this extension in <dirname> to process "
+			"(exclusive with -l/--file-list) [blastdbcmd]")
+	ag.add_argument("-l", "--file-list", type=str, metavar="file",
+		help="provide a list of files in <dirname> instead of scanning by "
+			"extension (exclusive with -x/--scan-ext)")
 	ap.add_argument("-d", "--delimiter", type=str, default="\t",
 		metavar="str",
 		help="delimiter in input files [<tab>]")
@@ -33,6 +37,8 @@ def get_args():
 		help="output plot image, or write to stdout by default '-'")
 	# parse and refine arsg
 	args = ap.parse_args()
+	if (args.scan_ext is None) and (args.file_list is None):
+		args.scan_ext = "blastdbcmd"
 	if args.plot == "-":
 		args.plot = sys.stdout.buffer
 	return args
@@ -45,12 +51,38 @@ def read_oligo_tax_count(fname, key_field, *, delimiter="\t") \
 	return collections.Counter(tax)
 
 
-def read_all_oligo_tax_count(dirname, extension, key_field, **kw) -> dict:
-	ret = dict()
+def _iter_file_by_scan_ext(dirname, scan_ext: str) -> iter:
 	for i in os.scandir(dirname):
-		if i.is_file() and i.name.endswith(extension):
-			oligo = int(re.search(r"^(\d+)", i.name).group(1))
-			ret[oligo] = read_oligo_tax_count(i.path, key_field, **kw)
+		if i.name.endswith(scan_ext):
+			yield i
+	return
+
+
+def _iter_file_by_file_list(dirname, file_list: str) -> iter:
+	with open(file_list, "r") as fp:
+		file_set = set(fp.read().splitlines())
+
+	for i in os.scandir(dirname):
+		if i.name in file_set:
+			yield i
+	return
+
+
+def read_oligo_tax_count_in_dir(dirname, *, scan_ext=None, file_list=None,
+		key_field=0, **kw) -> dict:
+	if (scan_ext is None) and (file_list is None):
+		raise ValueError("must provide either scan_ext or file_list")
+	if (scan_ext is not None) and (file_list is not None):
+		raise ValueError("cannot provide both scan_ext and file_list")
+	if scan_ext is not None:
+		file_iter = _iter_file_by_scan_ext(dirname, scan_ext)
+	else:
+		file_iter = _iter_file_by_file_list(dirname, file_list)
+
+	ret = dict()
+	for i in file_iter:
+		oligo = int(re.search(r"^(\d+)", i.name).group(1))
+		ret[oligo] = read_oligo_tax_count(i.path, key_field, **kw)
 	return ret
 
 
@@ -207,7 +239,8 @@ def plot_oligo_tax_stackbar(png, oligo_tax: dict, num_legend_taxons: int = 20):
 def main():
 	args = get_args()
 	# load data
-	oligo_tax = read_all_oligo_tax_count(args.dirname, args.extension,
+	oligo_tax = read_oligo_tax_count_in_dir(args.dirname,
+		scan_ext=args.scan_ext, file_list=args.file_list,
 		key_field=args.key_field, delimiter=args.delimiter)
 	# plot
 	plot_oligo_tax_stackbar(args.plot, oligo_tax,
