@@ -113,7 +113,7 @@ def write_output_table(f, oligo_tax: dict, *, delimiter="\t") -> None:
 		header_line = delimiter.join([""] + ["OPU_%03u" % i for i in oligos])
 		print(header_line, file=fp)
 		for t in uniq_tax:
-			vals = [oligo_tax[i][t] / total_counts[i] for i in oligos]
+			vals = [oligo_tax[i][t] / (total_counts[i] or 1) for i in oligos]
 			line = delimiter.join([t] + [str(i) for i in vals])
 			print(line, file=fp)
 	return
