@@ -49,8 +49,8 @@ def get_oligo_data(oligo_output_dir: str) -> (numpy.ndarray, numpy.ndarray):
 
 	# read data
 	raw = numpy.loadtxt(fname, dtype=object, delimiter="\t")
-	oligos = raw[0, :]
-	samples = raw[:, 0]
+	oligos = raw[0, 1:]
+	samples = raw[1:, 0]
 	counts = raw[1:, 1:].astype(int)
 
 	return oligos, counts
@@ -71,7 +71,7 @@ def filter_and_save_oligos(f, oligos, counts, abund_thres: float) -> None:
 def main():
 	args = get_args()
 	oligos, counts = get_oligo_data(args.oligo_output)
-	filter_and_save_oligos(args.outout, oligos, counts, args.threshold)
+	filter_and_save_oligos(args.output, oligos, counts, args.threshold)
 	return
 
 
