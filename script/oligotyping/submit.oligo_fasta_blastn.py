@@ -51,7 +51,7 @@ class OligoRepUniqStats(object):
 		rep_dir = os.path.join(path, "OLIGO-REPRESENTATIVES")
 		if not os.path.isdir(rep_dir):
 			raise IOError("dir '%s' is missing, may be incomplete oligotyping "
-				"output" % path)
+				"output" % rep_dir)
 		# scan dir for target files
 		files = list()
 		for i in os.scandir(rep_dir):
