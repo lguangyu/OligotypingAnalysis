@@ -60,6 +60,10 @@ class OligoCountTable(object):
 	def n_samples(self) -> int:
 		return len(self.samples)
 
+	@property
+	def sample_count_sum(self) -> numpy.ndarray:
+		return self.data.sum(axis=1)
+
 	def validate_data(self) -> None:
 		if self.data.ndim != 2:
 			raise ValueError("self.data must be a 2-dimensional matrix")
@@ -178,7 +182,15 @@ class OligoColorList(list):
 		return itertools.cycle(super().__iter__())
 
 
-def plot_oligo_abund_stackbar(png, count_table: OligoCountTable, *, dpi=300):
+def plot_oligo_abund_stackbar(png, count_table: OligoCountTable, *,
+		oligo_list_file=None, dpi=300):
+	# calculate the total count from the original table
+	total_counts = count_table.sample_count_sum
+
+	# select oligos if necessary
+	if oligo_list_file is not None:
+		count_table = count_table.select_by_oligo_list_file(oligo_list_file)
+
 	oligos, samples = count_table.oligos, count_table.samples
 	n_oligos, n_samples = count_table.n_oligos, count_table.n_samples
 
@@ -191,7 +203,7 @@ def plot_oligo_abund_stackbar(png, count_table: OligoCountTable, *, dpi=300):
 
 	ax = layout["axes"]
 	counts = count_table.data
-	fracs = counts / counts.sum(axis=1, keepdims=True)
+	fracs = counts / total_counts.reshape(-1, 1)
 	bottom = numpy.zeros(n_samples, dtype=float)
 	handles = list()
 
@@ -203,6 +215,11 @@ def plot_oligo_abund_stackbar(png, count_table: OligoCountTable, *, dpi=300):
 			facecolor=colors[i], label=oligos[i])
 		bottom += height
 		handles.append(p)
+	# add 'others'
+	p = ax.bar(x, 1.0 - bottom, width=0.8, bottom=bottom,
+		align="center", edgecolor="#404040", linewidth=0.5,
+		facecolor="#ffffff", label="others")
+	handles.append(p)
 
 	# legend
 	ax.legend(handles=handles, loc=2, fontsize=8,
@@ -226,11 +243,9 @@ def main():
 	args = get_args()
 	# load data
 	count_table = OligoCountTable.from_oligo_outptu_dir(args.oligo_output)
-	# select by oligo list if necessary
-	if args.oligo_list is not None:
-		count_table = count_table.select_by_oligo_list_file(args.oligo_list)
 	# plot
-	plot_oligo_abund_stackbar(args.plot, count_table, dpi=args.dpi)
+	plot_oligo_abund_stackbar(args.plot, count_table,
+		oligo_list_file=args.oligo_list, dpi=args.dpi)
 	return
 
 
