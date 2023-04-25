@@ -12,10 +12,14 @@ def get_args() -> argparse.Namespace:
 	ap = argparse.ArgumentParser()
 	ap.add_argument("oligo_output", type=str,
 		help="oligotyping output directory")
-	ap.add_argument("--threshold", "-t", type=float, default=0.05,
+	ap.add_argument("--abund-threshold", "-a", type=float, default=0.05,
 		metavar="float",
-		help="list oligos with abundance more than this threshold in at least "
-			"one sample [0.05]")
+		help="do not list oligos if its abundances are less than this threshold"
+			" across all samples, 0 means report all [0.05]")
+	ap.add_argument("--count-threshold", "-c", type=int, default=0,
+		metavar="int",
+		help="do not list oligos if its total count is less than this threshold"
+			" across all samples, 0 measn report all [0]")
 	ap.add_argument("--output", "-o", type=str, default="-",
 		metavar="txt",
 		help="output oligo name list [stdout]")
@@ -56,11 +60,13 @@ def get_oligo_data(oligo_output_dir: str) -> (numpy.ndarray, numpy.ndarray):
 	return oligos, counts
 
 
-def filter_and_save_oligos(f, oligos, counts, abund_thres: float) -> None:
+def filter_and_save_oligos(f, oligos, counts, abund_thres: float = 0.0,
+		count_thres: int = 0) -> None:
 	oligo_abund = counts / counts.sum(axis=1, keepdims=True)
 	# select oligos by max abundance across samples
-	mask = (oligo_abund.max(axis=0) >= abund_thres)
-	oligo_select = oligos[mask]
+	abund_mask = (oligo_abund.max(axis=0) >= abund_thres)
+	count_mask = (counts.sum(axis=0) >= count_thres)
+	oligo_select = oligos[abund_mask & count_mask]
 	# save file
 	with get_fp(f, "w") as fp:
 		for i in oligo_select:
@@ -71,7 +77,10 @@ def filter_and_save_oligos(f, oligos, counts, abund_thres: float) -> None:
 def main():
 	args = get_args()
 	oligos, counts = get_oligo_data(args.oligo_output)
-	filter_and_save_oligos(args.output, oligos, counts, args.threshold)
+	filter_and_save_oligos(args.output, oligos, counts,
+		abund_thres=args.abund_threshold,
+		count_thres=args.count_threshold,
+	)
 	return
 
 
