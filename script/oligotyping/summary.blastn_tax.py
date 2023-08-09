@@ -110,7 +110,7 @@ def write_output_table(f, oligo_tax: dict, *, delimiter="\t") -> None:
 	uniq_tax = sorted(set(itertools.chain(*oligo_tax.values())))
 	total_counts = {k: v.total() for k, v in oligo_tax.items()}
 	with get_fp(f, "w") as fp:
-		header_line = delimiter.join([""] + ["OPU_%03u" % i for i in oligos])
+		header_line = delimiter.join([""] + ["OLIGO_%03u" % i for i in oligos])
 		print(header_line, file=fp)
 		for t in uniq_tax:
 			vals = [oligo_tax[i][t] / (total_counts[i] or 1) for i in oligos]
