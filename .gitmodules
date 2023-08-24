@@ -1,7 +1,7 @@
 [submodule "mothur"]
 	path = mothur
-	url = git@github.com:lguangyu/Amplicon_Sequencing_Analysis.git
+	url = https://github.com/lguangyu/Amplicon_Sequencing_Analysis.git
 	branch = anal_proj_struct
 [submodule "mpllayout"]
 	path = prerequisite/mpllayout
-	url = git@github.com:lguangyu/MatplotlibLayout.git
+	url = https://github.com/lguangyu/MatplotlibLayout.git
