@@ -9,9 +9,14 @@
 ## Set variables
 
 # Adjust the file names to your own study - these are the files from the mothur SOP
-mothur="$HOME/opt/mothur/1.45.3/bin/mothur"
+mothur="mothur"
+mafft="mafft"
 in_prefix="mothur.output.seqs"
-processors=$SLURM_CPUS_PER_TASK
+if [[ -z $SLURM_CPUS_PER_TASK ]]; then
+	processors=1
+else
+	processors=$SLURM_CPUS_PER_TASK
+fi
 
 # Set the taxon you want to select, separate taxonomic levels with ";" 
 # Do not touch inner and outer quotes
@@ -23,8 +28,7 @@ $mothur "#set.current(processors=$processors); get.lineage(taxonomy=${in_prefix}
 	get.seqs(accnos=current, fasta=${in_prefix}.fasta)"
 
 # re-align using mafft
-$HOME/opt/mafft/7.505/bin/mafft \
-	--thread $processors \
+$mafft --thread $processors \
 	${in_prefix}.pick.fasta > ${in_prefix}.pick.mafft.fasta
 
 # Call mothur commands for generating deuniqued sequences
