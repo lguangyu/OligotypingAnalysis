@@ -10,7 +10,17 @@
 * mafft (to realign sequences)
 * (optional) if you want oligotyping's native plot features, R and ggplot2 are required
 
-## Installation notes
+## Installation guide
+
+### Install python package dependencies
+
+All dependency python packages can be installed by
+
+```bash
+$ pip install -r requirements.txt
+```
+
+### Install oligotyping
 
 The original package of `oligotyping` contains an error to halt automated `pip` installation. We need to resolve the error manually. First download the source package from `pip`:
 
@@ -34,7 +44,7 @@ Last, install with `pip`:
 $ pip install ./
 ```
 
-## Pre-oligotyping
+## Before oligotyping analysis
 
 Run the mothur SOP in `mothur/`, following the procedure described in `mothur/README.md`.
 
@@ -42,17 +52,17 @@ Run the mothur SOP in `mothur/`, following the procedure described in `mothur/RE
 
 ### 1. Copy analysis template
 
-Oligotyping can only be done at per-taxonomy basis. Usually it's used to resolve finer taxonomy clusters than genus/species level.
+Oligotyping can only be done at per-taxon basis, as it is meant to resolve the OTUs of an interested taxon beyond genus level.
 
-The `oligo.prototype` is a analysis template for each targeted taxon. So first copy the entire `oligo.prototype` directory for our analysis, we'll use the genus `Acinetobacter` as an exampe in this case:
+The `oligo.prototype` is a analysis template for each targeted taxon. The analysis begins with cloning the `oligo.prototype` directory, e.g. one copy for each taxon targetted for analysis. Here we'll use the genus `Acinetobacter` as an exampe:
 
 ```bash
 $ copy -r oligo.prototype/ oligo.acinetobacter/
 ```
 
-### 2. Pick taxon name
+### 2. Find the full taxonomy
 
-It is essential to pick the taxonomy subject to this analysis. This information can be acquired from the `mothur` output. We can do a quick `grep` search:
+It is essential to correctly find the full name of the taxonomy for analysis. This information can be acquired from the `mothur` output. We can do a quick `grep` search:
 
 ```bash
 # get into the mothur2oligo directory
@@ -62,7 +72,7 @@ $ grep -i 'acinetobacter' mothur.output.seqs.taxonomy
 
 Note the file `mothur.output.seqs.taxonomy` is a symbolic link to the actual mothur output file. If you setup the environment correctly and `mothur` SOP finished correctly, these files should exist.
 
-The `grep` output may look like something below (showing first 5 lines):
+Output of the above `grep` command may look like something below (showing first 5 lines):
 
 ```
 ASV0001	4643	Bacteria(100);Proteobacteria(100);Gammaproteobacteria(100);Pseudomonadales(100);Moraxellaceae(100);Acinetobacter(100);Acinetobacter_unclassified(100);
@@ -78,7 +88,7 @@ It is a 3-column table. What we need is in the 3rd column, as the taxonomy path 
 Bacteria(100);Proteobacteria(100);Gammaproteobacteria(100);Pseudomonadales(100);Moraxellaceae(100);Acinetobacter(100);
 ```
 
-Then discard all the bootstrapping numbers (with the parenthese):
+Then discard all the bootstrapping numbers (with the parenthese). The final taxonomy string should look like something below:
 
 ```
 Bacteria;Proteobacteria;Gammaproteobacteria;Pseudomonadales;Moraxellaceae;Acinetobacter;
@@ -149,22 +159,20 @@ This script filters oligos if:
 * is more abundant (w.r.t. extracted taxon=100%) than 0.1 (10%) in at least one sample, AND:
 * has more than 10 counts in total (this functionality reprecates the previous `-M`)
 
-Note that you can set either argument to 0 (or omit the argument) to disable the corresponding filter, for example, by using either :
-
-```bash
---abund-threshold 0.1 # this line only
-```
-
-or
+Note that you can set either argument to 0 (or omit the argument) to disable the corresponding filter, for example:
 
 ```bash
 --abund-threshold 0.1
 --count-threshold 0
 ```
 
-will both filter the oligos using only the abundance threshold filter but not the count theshold filter.
+will only do abundance threshold filtering but not the count threshold filtering; This is exactly the same as running:
 
-### 7. Post-analysis
+```bash
+--abund-threshold 0.1
+```
+
+### 7. Downstream analysis
 
 Up to this point, the oligotyping analysis is done. The essential output files are:
 
@@ -172,4 +180,4 @@ Up to this point, the oligotyping analysis is done. The essential output files a
 * `mothur2oligo.final.oligo_final/MATRIX-PERCENT.txt`: the table of oligo abundance percentages in each sample; this is essentially the normalized version of `MATRIX-COUNT.txt`
 * `abund_oligo.list`: the list of filtered oligos
 
-There are more things can be interesting, for example determining the taxonomy of each oligo. Those are considered downstream analysis and the approaches are many. So they will not be included in this example.
+There are more things can be interesting, for example determining the taxonomy of each oligo. Those are considered downstream analysis. Since the approaches are many, they will not be included in this example. One possible approach is to exhausively search the taxonomy classification of every sequences in an oligotype (do not use the representative sequences) against NCBI's RNA refseq database then determine the oligotype taxonomy via majority vote. However considering the number of oligotypes and the size of database, it must be done with HPC.
