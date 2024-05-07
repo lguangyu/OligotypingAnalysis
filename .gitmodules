@@ -1,6 +1,3 @@
 [submodule "mothur"]
 	path = mothur
 	url = https://github.com/lguangyu/Amplicon_Sequencing_Analysis.git
-[submodule "mpllayout"]
-	path = prerequisite/mpllayout
-	url = https://github.com/lguangyu/MatplotlibLayout.git
